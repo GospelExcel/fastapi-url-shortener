@@ -1,5 +1,6 @@
 from fastapi import FastAPI, Request, HTTPException, Depends
 from fastapi.responses import RedirectResponse
+from pydantic import BaseModel
 
 import string
 import random
@@ -13,6 +14,8 @@ Base.metadata.create_all(bind=engine)
 
 app = FastAPI()
 
+class URL(BaseModel):
+    url: str
 
 def generate_slug(length=6):
     """Generate a random short slug of given length."""
@@ -20,31 +23,18 @@ def generate_slug(length=6):
     return ''.join(random.choice(chars) for _ in range(length))
 
 @app.post("/shorten")
-async def shorten_url(request: Request, db: Session = Depends(get_db)):
-    """
-    Expects JSON: {"url": "https://some-long-url.com"}
-    Returns JSON: {"short_url": "http://localhost:8000/<slug>"}
-    """
-    data = await request.json()
-    original_url = data.get("url")
-
-    if not original_url:
-        raise HTTPException(status_code=400, detail="Missing 'url' in request body")
-
-    # Generate a random slug
+async def shorten_url(url: URL, db: Session = Depends(get_db)):
+    original_url = url.url
     slug = generate_slug()
-    while db.query(UrlMapping).filter(UrlMapping.slug == slug).first() is not None:
+
+    while db.query(UrlMapping).filter(UrlMapping.slug == slug).first():
         slug = generate_slug()
 
-
-    # Store the mapping
     url_record = UrlMapping(slug=slug, original_url=original_url)
     db.add(url_record)
     db.commit()
-    db.refresh(url_record)
 
-    # Construct the short link (assuming we run locally on port 8000)
-    short_url = f"http://localhost:8000/{slug}"
+    short_url = f"http://127.0.0.1:8000/{slug}"
     return {"short_url": short_url}
 
 @app.get("/{slug}")
