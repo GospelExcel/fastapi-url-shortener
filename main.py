@@ -23,7 +23,7 @@ def generate_slug(length=6):
     return ''.join(random.choice(chars) for _ in range(length))
 
 @app.post("/shorten")
-async def shorten_url(url: URL, db: Session = Depends(get_db)):
+async def shorten_url(request: Request, url: URL, db: Session = Depends(get_db)):
     original_url = url.url
     slug = generate_slug()
 
@@ -34,8 +34,11 @@ async def shorten_url(url: URL, db: Session = Depends(get_db)):
     db.add(url_record)
     db.commit()
 
-    short_url = f"http://127.0.0.1:8000/{slug}"
+    # Dynamically build the URL based on your Render deployment
+    short_url = f"{request.base_url}{slug}"
+
     return {"short_url": short_url}
+
 
 @app.get("/{slug}")
 async def redirect_slug(slug: str, db: Session = Depends(get_db)):
